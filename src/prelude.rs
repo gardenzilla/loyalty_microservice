@@ -1,5 +1,4 @@
-use chrono::Utc;
-use gzlib::proto::commitment::{CommitmentInfo, CommitmentObj, CustomerObj, PurchaseInfo};
+use gzlib::proto::loyalty::{transaction::TransactionKind, Account, Transaction};
 
 pub enum ServiceError {
   InternalError(String),
@@ -68,5 +67,44 @@ pub type ServiceResult<T> = Result<T, ServiceError>;
 impl From<std::env::VarError> for ServiceError {
   fn from(error: std::env::VarError) -> Self {
     ServiceError::internal_error(&format!("ENV KEY NOT FOUND. {}", error))
+  }
+}
+
+impl From<crate::loyalty::Account> for Account {
+  fn from(f: crate::loyalty::Account) -> Self {
+    Self {
+      account_id: f.account_id.to_string(),
+      customer_id: f.customer_id,
+      customer_birthdate: f.customer_birthdate.to_string(),
+      card_id: match f.card_id {
+        Some(card_id) => card_id,
+        None => "".to_string(),
+      },
+      loyalty_level: f.loyalty_level.to_string(),
+      balance_points: f.balance_points,
+      yearly_gross_turnover: f.yearly_gross_turnover,
+      created_at: f.created_at.to_rfc3339(),
+      created_by: f.created_by,
+    }
+  }
+}
+
+impl From<crate::loyalty::Transaction> for Transaction {
+  fn from(f: crate::loyalty::Transaction) -> Self {
+    Self {
+      transaction_id: f.transaction_id.to_string(),
+      account_id: f.account_id.to_string(),
+      purchase_id: f.purchase_id.to_string(),
+      transaction_kind: match f.transaction_kind {
+        crate::loyalty::TransactionKind::Earn {
+          total_payable_amount: _,
+          discount: _,
+        } => TransactionKind::Earn,
+        crate::loyalty::TransactionKind::Burn => TransactionKind::Burn,
+      } as i32,
+      amount: f.amount,
+      created_by: f.crated_by,
+      created_at: f.created_at.to_rfc3339(),
+    }
   }
 }
