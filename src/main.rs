@@ -189,7 +189,7 @@ impl LoyaltyService {
     Ok(res.into())
   }
 
-  async fn burn_points(&self, r: BurnRequest) -> ServiceResult<Account> {
+  async fn burn_points(&self, r: BurnRequest) -> ServiceResult<Transaction> {
     let res = self
       .accounts
       .lock()
@@ -327,7 +327,7 @@ impl Loyalty for LoyaltyService {
   async fn burn_points(
     &self,
     request: Request<proto::loyalty::BurnRequest>,
-  ) -> Result<Response<proto::loyalty::Account>, Status> {
+  ) -> Result<Response<proto::loyalty::Transaction>, Status> {
     let res = self.burn_points(request.into_inner()).await?;
     Ok(Response::new(res))
   }
