@@ -19,7 +19,7 @@ where
     purchase_id: Uuid,
     points_to_burn: i32,
     created_by: u32,
-  ) -> Result<&Self, String>;
+  ) -> Result<Transaction, String>;
   fn close_purchase(
     &mut self,
     purchase_info: PurchaseInfo,
@@ -86,7 +86,7 @@ impl AccountExt for Account {
     purchase_id: Uuid,
     points_to_burn: i32,
     created_by: u32,
-  ) -> Result<&Self, String> {
+  ) -> Result<Transaction, String> {
     if self.get_balance() < points_to_burn {
       return Err(format!(
         "Nincs elég pont a tranzakcióhoz. Jelenlegi pont: {}",
@@ -107,10 +107,10 @@ impl AccountExt for Account {
     self.balance_points -= points_to_burn;
 
     // Push new transaction to transactions
-    self.transactions.push(transaction);
+    self.transactions.push(transaction.clone());
 
-    // Return Ok self ref
-    Ok(self)
+    // Return Ok transaction
+    Ok(transaction)
   }
 
   fn close_purchase(
