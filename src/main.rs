@@ -16,6 +16,7 @@ use std::path::PathBuf;
 use std::{env, str::FromStr};
 use tokio::sync::{oneshot, Mutex};
 use tonic::{transport::Server, Request, Response, Status};
+use tokio_stream::wrappers::ReceiverStream;
 use uuid::Uuid;
 
 struct LoyaltyService {
@@ -277,7 +278,7 @@ impl Loyalty for LoyaltyService {
     Ok(Response::new(res))
   }
 
-  type GetTransactionsAllStream = tokio::sync::mpsc::Receiver<Result<Transaction, Status>>;
+  type GetTransactionsAllStream = ReceiverStream<Result<Transaction, Status>>;
 
   async fn get_transactions_all(
     &self,
@@ -297,7 +298,7 @@ impl Loyalty for LoyaltyService {
     });
 
     // Send back the receiver
-    Ok(Response::new(rx))
+    Ok(Response::new(ReceiverStream::new(rx)))
   }
 
   async fn set_card(
