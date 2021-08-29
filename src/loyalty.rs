@@ -1,4 +1,4 @@
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Datelike, NaiveDate, Utc};
 use gzlib::id::LuhnCheck;
 use packman::VecPackMember;
 use serde::{Deserialize, Serialize};
@@ -26,6 +26,7 @@ where
     created_by: u32,
   ) -> Result<PurchaseSummary, String>;
   fn get_balance(&self) -> i32;
+  fn get_yearly_gross_turnover(&self) -> i32;
   fn check_loyalty_level(&mut self);
   fn get_burned_points(&mut self, purchase_id: Uuid) -> i32;
 }
@@ -170,9 +171,9 @@ impl AccountExt for Account {
   fn check_loyalty_level(&mut self) {
     match self.loyalty_level {
       LoyaltyLevel::L1 => {
-        // If balance is higher or eq with
+        // If yearly total is higher or eq with
         // the given target
-        if self.get_balance() >= TARGET_TO_JUMP {
+        if self.get_yearly_gross_turnover() >= TARGET_TO_JUMP {
           self.loyalty_level = LoyaltyLevel::L2
         }
       }
@@ -191,6 +192,25 @@ impl AccountExt for Account {
       acc
     })
   }
+
+  fn get_yearly_gross_turnover(&self) -> i32 {
+    self
+      .transactions
+      .iter()
+      // Filter current year transactions
+      .filter(|tr| tr.created_at.year() == Utc::today().naive_local().year())
+      // Fold only Earns
+      .fold(0, |acc, tr| {
+        acc
+          + match tr.transaction_kind {
+            TransactionKind::Earn {
+              total_payable_amount,
+              discount: _,
+            } => total_payable_amount,
+            TransactionKind::Burn => 0,
+          }
+      })
+  }
 }
 
 impl Default for Account {
@@ -202,7 +222,7 @@ impl Default for Account {
       card_id: None,
       loyalty_level: LoyaltyLevel::default(),
       balance_points: 0,
-      yearly_gross_turnover: 0,
+      yearly_gross_turnover: 0, // ok now its total; NOT yearly
       transactions: Vec::new(),
       created_by: 0,
       created_at: Utc::now(),
@@ -218,7 +238,7 @@ impl VecPackMember for Account {
   }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum LoyaltyLevel {
   L1, // 2%
   L2, // 4%
@@ -326,4 +346,53 @@ pub struct PurchaseSummary {
   pub burned_points: i32,
   pub earned_points: i32,
   pub balance_closing: i32,
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  #[test]
+  fn test_jump() {
+    // Create new account with L1
+    let mut account = Account::new(0, Utc::today().naive_local(), 0);
+    // Add 20_000 gross pruchase
+    account
+      .close_purchase(
+        PurchaseInfo {
+          purchase_id: Uuid::new_v4(),
+          payable_total_gross: 20_000,
+          created_by: 0,
+        },
+        0,
+      )
+      .unwrap();
+    // Should be L1
+    assert_eq!(account.loyalty_level, LoyaltyLevel::L1);
+    // Add 20_000 gross pruchase
+    account
+      .close_purchase(
+        PurchaseInfo {
+          purchase_id: Uuid::new_v4(),
+          payable_total_gross: 20_000,
+          created_by: 0,
+        },
+        0,
+      )
+      .unwrap();
+    // Should be L1
+    assert_eq!(account.loyalty_level, LoyaltyLevel::L1);
+    // Add 20_000 gross pruchase
+    account
+      .close_purchase(
+        PurchaseInfo {
+          purchase_id: Uuid::new_v4(),
+          payable_total_gross: 20_000,
+          created_by: 0,
+        },
+        0,
+      )
+      .unwrap();
+    // Should be L2
+    assert_eq!(account.loyalty_level, LoyaltyLevel::L2);
+  }
 }

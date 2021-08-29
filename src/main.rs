@@ -15,8 +15,8 @@ use std::error::Error;
 use std::path::PathBuf;
 use std::{env, str::FromStr};
 use tokio::sync::{oneshot, Mutex};
-use tonic::{transport::Server, Request, Response, Status};
 use tokio_stream::wrappers::ReceiverStream;
+use tonic::{transport::Server, Request, Response, Status};
 use uuid::Uuid;
 
 struct LoyaltyService {
